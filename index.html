@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlockWarden - AI Blockchain Detective</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body {
+            font-family: 'Roboto Mono', monospace;
+            background-color: #0a0a1f;
+            color: #00ff9d;
+        }
+        .cyberpunk-border {
+            border: 2px solid #00ff9d;
+            box-shadow: 0 0 10px #00ff9d;
+        }
+        .cyber-glow {
+            text-shadow: 0 0 5px #00ff9d;
+        }
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background-color: #001a0f;
+            z-index: 1000;
+        }
+        .loading::after {
+            content: '';
+            position: absolute;
+            width: 40%;
+            height: 100%;
+            background-color: #00ff9d;
+            animation: loading 1s infinite ease-in-out;
+        }
+        @keyframes loading {
+            0% { left: -40%; }
+            100% { left: 100%; }
+        }
+        .cyber-button {
+            background: linear-gradient(45deg, #00ff9d20, #00ff9d40);
+            border: 1px solid #00ff9d;
+            transition: all 0.3s;
+        }
+        .cyber-button:hover {
+            background: linear-gradient(45deg, #00ff9d40, #00ff9d60);
+            box-shadow: 0 0 15px #00ff9d;
+        }
+        .typing-indicator {
+            display: inline-flex;
+            gap: 4px;
+            padding: 8px;
+        }
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: #00ff9d;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4" x-data="blockWarden">
+    <main class="max-w-6xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-6xl font-bold cyber-glow font-['Orbitron']">BlockWarden</h1>
+            <p class="mt-2 text-cyan-400">AI Blockchain Detective</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Chat Interface -->
+            <div class="cyberpunk-border rounded-lg p-4 bg-gray-900 bg-opacity-50">
+                <div id="chatMessages" class="h-[400px] overflow-y-auto mb-4 space-y-4 p-2" x-ref="chatContainer">
+                    <template x-for="message in messages" :key="message.id">
+                        <div :class="`p-2 rounded ${message.role === 'user' ? 'bg-cyan-900 ml-auto' : 'bg-gray-800'} max-w-[80%]`"
+                             x-text="message.content"></div>
+                    </template>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" x-model="userInput" 
+                           @keyup.enter="sendMessage()"
+                           placeholder="Ask about wallet balance, transactions, or paste address..." 
+                           class="flex-1 bg-gray-800 border border-cyan-500 rounded px-4 py-2 text-cyan-300 focus:outline-none focus:border-cyan-400">
+                    <button @click="sendMessage()" class="cyber-button px-6 py-2 rounded text-cyan-300">
+                        <i class="bi bi-send"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Data Display -->
+            <div class="cyberpunk-border rounded-lg p-4 bg-gray-900 bg-opacity-50">
+                <h2 class="text-xl font-['Orbitron'] mb-4 cyber-glow">Blockchain Analytics</h2>
+                <div class="space-y-4">
+                    <div x-show="walletData.balance !== null">
+                        <h3 class="text-cyan-400 mb-2">Balance Information</h3>
+                        <div class="text-2xl cyber-glow" x-text="`${walletData.balance} ETH`"></div>
+                    </div>
+                    <div x-show="bitqueryTransactions.length > 0">
+                        <h3 class="text-cyan-400 mb-2">BitQuery Transactions</h3>
+                        <div class="space-y-2">
+                            <template x-for="tx in bitqueryTransactions" :key="tx.hash">
+                                <div class="p-2 cyberpunk-border rounded">
+                                    <div class="text-sm">
+                                        <div class="flex justify-between">
+                                            <span>Hash:</span>
+                                            <span x-text="tx.hash.substring(0, 10) + '...'"></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>From:</span>
+                                            <span x-text="tx.from.address.substring(0, 10) + '...'"></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>To:</span>
+                                            <span x-text="tx.to.address.substring(0, 10) + '...'"></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>Value:</span>
+                                            <span x-text="formatEther(tx.value) + ' ETH'"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    <div x-show="walletData.transactions.length > 0">
+                        <h3 class="text-cyan-400 mb-2">Recent Moralis Transactions</h3>
+                        <div class="space-y-2">
+                            <template x-for="tx in walletData.transactions" :key="tx.hash">
+                                <div class="p-2 cyberpunk-border rounded">
+                                    <div class="text-sm">
+                                        <div class="flex justify-between">
+                                            <span>Hash:</span>
+                                            <span x-text="tx.hash.substring(0, 10) + '...'"></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>Value:</span>
+                                            <span x-text="tx.value + ' ETH'"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('blockWarden', () => ({
+                messages: [],
+                userInput: '',
+                walletData: {
+                    balance: null,
+                    transactions: []
+                },
+                bitqueryTransactions: [],
+                isLoading: false,
+                messageId: 0,
+
+                init() {
+                    this.addMessage('assistant', 'Hello! I\'m BlockWarden, your AI blockchain detective. You can ask me about wallet balances, transactions, or directly paste an ETH address.');
+                },
+
+                async sendMessage() {
+                    if (!this.userInput.trim()) return;
+
+                    this.addMessage('user', this.userInput);
+                    const userMessage = this.userInput;
+                    this.userInput = '';
+
+                    if (userMessage.match(/^0x[a-fA-F0-9]{40}$/)) {
+                        await this.getWalletInfo(userMessage);
+                        await this.getBitqueryTransactions(userMessage);
+                    } else {
+                        const addressMatch = userMessage.match(/0x[a-fA-F0-9]{40}/);
+                        if (addressMatch) {
+                            await this.getWalletInfo(addressMatch[0]);
+                            await this.getBitqueryTransactions(addressMatch[0]);
+                        } else {
+                            await this.processNaturalLanguage(userMessage);
+                        }
+                    }
+                },
+
+                async getBitqueryTransactions(address) {
+                    try {
+                        const query = `{
+                            ethereum {
+                                transactions(
+                                    options: {limit: 5}
+                                    where: {from: {is: "${address}"}}
+                                ) {
+                                    hash
+                                    from { address }
+                                    to { address }
+                                    value
+                                }
+                            }
+                        }`;
+
+                        const response = await fetch('https://graphql.bitquery.io', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-API-KEY': 'BQY9175O3c3FBWejXuTH1H7XhZTUuPak'
+                            },
+                            body: JSON.stringify({ query })
+                        });
+
+                        const data = await response.json();
+                        this.bitqueryTransactions = data.data.ethereum.transactions;
+                    } catch (error) {
+                        console.error('BitQuery Error:', error);
+                    }
+                },
+
+                async processNaturalLanguage(question) {
+                    try {
+                        this.isLoading = true;
+                        const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/ai', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': 'Bearer pTVNwdGRdHVXRxhZ1rqHuob7OiE2',
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                messages: [{
+                                    role: 'user',
+                                    content: [{ 
+                                        type: 'text', 
+                                        text: `You are a blockchain detective. Extract ethereum addresses or understand the intent from this question: ${question}. If the question is about Vitalik's wallet, use this address: 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045. Response format should be: {intent: 'balance'|'transactions'|'unknown', address: 'ethAddress'|null}` 
+                                    }]
+                                }]
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        const parsedResponse = JSON.parse(data.message.replace(/^```json\n|```$/g, ''));
+                        
+                        if (parsedResponse.address) {
+                            await this.getWalletInfo(parsedResponse.address);
+                            await this.getBitqueryTransactions(parsedResponse.address);
+                        } else {
+                            this.addMessage('assistant', "I couldn't find a valid Ethereum address in your question. Please provide an address or ask about a known wallet.");
+                        }
+                    } catch (error) {
+                        this.addMessage('assistant', 'Sorry, I encountered an error processing your question. Please try again.');
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+
+                async getWalletInfo(address) {
+                    try {
+                        this.isLoading = true;
+                        this.addMessage('assistant', 'Investigating the blockchain...');
+
+                        const balanceResponse = await fetch(`https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/moralis/${address}/balance?chain=eth`, {
+                            headers: { 'Authorization': 'Bearer pTVNwdGRdHVXRxhZ1rqHuob7OiE2' }
+                        });
+                        const balanceData = await balanceResponse.json();
+                        
+                        const ethBalance = (parseInt(balanceData.balance) / 1e18).toFixed(4);
+                        this.walletData.balance = ethBalance;
+
+                        const txResponse = await fetch(`https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/moralis/${address}/transactions?chain=eth&limit=5`, {
+                            headers: { 'Authorization': 'Bearer pTVNwdGRdHVXRxhZ1rqHuob7OiE2' }
+                        });
+                        const txData = await txResponse.json();
+
+                        this.walletData.transactions = txData.result?.map(tx => ({
+                            hash: tx.hash,
+                            value: (parseInt(tx.value) / 1e18).toFixed(4)
+                        })) || [];
+
+                        this.addMessage('assistant', `Investigation complete! 🔍\nWallet Balance: ${ethBalance} ETH\nFound ${txData.result?.length || 0} recent transactions.`);
+                    } catch (error) {
+                        this.addMessage('assistant', 'Error accessing blockchain data. Please try again.');
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+
+                addMessage(role, content) {
+                    this.messages.push({
+                        id: this.messageId++,
+                        role,
+                        content
+                    });
+                    this.$nextTick(() => {
+                        this.$refs.chatContainer.scrollTop = this.$refs.chatContainer.scrollHeight;
+                    });
+                },
+
+                formatEther(value) {
+                    return (parseFloat(value) / 1e18).toFixed(4);
+                }
+            }));
+        });
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
